@@ -13,6 +13,13 @@ struct message {
 } message;
 
 struct datum {
+    int buffer_length;
     int totalProducers;
     int totalConsumers;
 } datum;
+
+struct datum_buffer_pointer{
+    struct datum metadata;
+    struct message buffer[];
+} foo;
+

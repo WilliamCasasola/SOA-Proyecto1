@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
     init_app();
     reader_app();
     writer_app();
-    writer_app();
+    reader_app();
     writer_app();
     writer_app();
     reader_app();
@@ -30,57 +30,103 @@ int main(int argc, char** argv) {
 }
 
 int init_app() {
-    printf("- Initializer -\n");
+    printf("------ Initializer ------\n");
 
-    int fd;
-    struct datum counters, *counters_pointer;
-    long page_size = sizeof(counters);
+    int buffer_length = 8;                                  // TODO: receive as argument
+    int fd;                                                 // File Descriptor
+    struct datum *datum_pointer;                            // Pointer to the section of memory that holds basic metadata
+    struct datum_buffer_pointer *datum_buffer_pointer;      // Pointer to the section that holds all data
+    long datum_size = sizeof(datum);
+    long buffer_size = sizeof(message) * buffer_length;
 
-    printf("-- System Page size: %ld\n", sysconf(_SC_PAGE_SIZE));
-    printf("-- App Page Size: %ld\n", page_size);
+    printf("---- System Page size: %ld\n", sysconf(_SC_PAGE_SIZE));
+    printf("---- Metadata Size: %ld\n", datum_size);
+    printf("---- Buffer Size: %ld\n", buffer_size);
 
-    /*******************************/
+    /*********************************************************************************************/
+    // Create shared memory object
+    /*********************************************************************************************/
     printf("-- shm_open()\n");
 
     fd = shm_open(buffer_name, O_CREAT|O_RDWR|O_TRUNC, S_IRWXO|S_IRWXG|S_IRWXU);
 
     if ( fd == -1 ) {
-        perror("--- shm_open failure\n");
+        perror("---- shm_open failure\n");
         return 1;
     }
 
-    if((ftruncate(fd, page_size)) == -1){
-        perror("--- ftruncate failure\n");
+    if((ftruncate(fd, datum_size + buffer_size)) == -1){
+        perror("---- ftruncate failure\n");
         return 1;
     }
 
-    /*******************************/
-    printf("-- mmap\n");
+    /*********************************************************************************************/
+    // Map memory object used to hold metadata
+    /*********************************************************************************************/
+    printf("-- mmap - Metadata\n");
 
-    counters_pointer = (struct datum *)mmap(0, page_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    datum_pointer = (struct datum *)mmap(0, datum_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
-    if (counters_pointer == MAP_FAILED) {
-        perror("--- mmap failed");
+    if (datum_pointer == MAP_FAILED) {
+        perror("---- mmap failed");
         return 1;
     }
 
-    printf("-- Current data\n");
-    printf("--- Total Producers: %i\n", counters_pointer->totalProducers);
-    printf("--- Total Consumers: %i\n", counters_pointer->totalConsumers);
+    printf("---- Current data\n");
+    printf("------- Buffer length: %i\n", datum_pointer->buffer_length);
+    printf("------- Total Producers: %i\n", datum_pointer->totalProducers);
+    printf("------- Total Consumers: %i\n", datum_pointer->totalConsumers);
 
     printf("-- Initializing counters\n");
     // doesn't update the nmap
     // counters = (struct datum){ .totalProducers=5, .totalConsumers=4};
     // counters_pointer = &counters;
-    counters_pointer->totalProducers = 5;
-    counters_pointer->totalConsumers = 10;
+    datum_pointer->buffer_length = buffer_length;
+    datum_pointer->totalProducers = 5;
+    datum_pointer->totalConsumers = 10;
 
-    printf("-- Stored data\n");
-    printf("--- Total Producers: %i\n", counters_pointer->totalProducers);
-    printf("--- Total Consumers: %i\n", counters_pointer->totalConsumers);
+    printf("---- Current data\n");
+    printf("------- Buffer length: %i\n", datum_pointer->buffer_length);
+    printf("------- Total Producers: %i\n", datum_pointer->totalProducers);
+    printf("------- Total Consumers: %i\n", datum_pointer->totalConsumers);
 
+    /*********************************************************************************************/
+    // Map memory object used to hold metadata + buffer
+    /*********************************************************************************************/
+    printf("-- mmap - Metadata + Buffer\n");
+
+    datum_buffer_pointer = (struct datum_buffer_pointer *)mmap(0, datum_size + buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+    if (datum_buffer_pointer == MAP_FAILED) {
+        perror("---- mmap failed");
+        return 1;
+    }
+
+    // TODO: Should we initialize to something specific?
+    // struct message buffer[buffer_length];
+    // for (int i = 0; i < buffer_length; i++)
+    // {
+    //     buffer[i] = (struct message) { i, i * 2, rand() % 4};
+    // }
+    for (int i = 0; i < buffer_length; i++)
+    {
+        datum_buffer_pointer->buffer[i] = (struct message) { .id=i, .datetime=i * 2, .key=rand() % 4};
+    }
+
+    printf("---- Messages in buffer\n");
+
+    for (int i = 0; i < buffer_length; i++)
+    {
+        printf("------- Message - Id : %i, Datetime : %i, Key : %i\n", datum_buffer_pointer->buffer[i].id, datum_buffer_pointer->buffer[i].datetime, datum_buffer_pointer->buffer[i].key);
+    }
+
+    /*********************************************************************************************/
+    // Terminate init/create process
+    /*********************************************************************************************/
     printf("-- Terminate init \n");
-    munmap(counters_pointer, page_size);
+
+    munmap(datum_pointer, datum_size);
+    munmap(datum_buffer_pointer, datum_size + buffer_size);
     close(fd);
 
     printf("-- Initializer - END \n\n");
@@ -88,37 +134,70 @@ int init_app() {
 }
 
 int reader_app(){
-    printf("- Reader -\n");
+    printf("------ Reader ------\n");
     int fd;
-    struct datum counters, *counters_pointer;
-    long page_size = sizeof(counters);
+    struct datum *datum_pointer;
+    long datum_size = sizeof(datum);
 
-    /*******************************/
+    /*********************************************************************************************/
+    // Access shared memory object
+    /*********************************************************************************************/
     printf("-- shm_open()\n");
 
     fd = shm_open(buffer_name, O_RDWR, S_IRWXO|S_IRWXG|S_IRWXU);
 
     if ( fd == -1 ) {
-        perror("--- shm_open failure");
+        perror("---- shm_open failure");
         return 1;
     }
 
-    /*******************************/
-    printf("-- mmap - Read stored data \n");
+    /*********************************************************************************************/
+    // Map memory object used to hold metadata
+    /*********************************************************************************************/
+    printf("-- mmap - Metadata \n");
 
-    counters_pointer = (struct datum *)mmap(0, page_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    datum_pointer = (struct datum *)mmap(0, datum_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
-    if (counters_pointer == MAP_FAILED) {
-        perror("--- mmap failed");
+    if (datum_pointer == MAP_FAILED) {
+        perror("---- mmap failed");
         return 1;
     }
 
     printf("-- Stored data\n");
-    printf("--- Total Producers: %i\n", counters_pointer->totalProducers);
-    printf("--- Total Consumers: %i\n", counters_pointer->totalConsumers);
+    printf("---- Buffer Length: %i\n", datum_pointer->buffer_length);
+    printf("---- Total Producers: %i\n", datum_pointer->totalProducers);
+    printf("---- Total Consumers: %i\n", datum_pointer->totalConsumers);
 
+    /*********************************************************************************************/
+    // Map memory object used to hold metadata + buffer
+    /*********************************************************************************************/
+    printf("-- mmap - Metadata + Buffer \n");
+    int buffer_length = datum_pointer->buffer_length;
+    long buffer_size = sizeof(message) * buffer_length;
+
+    struct datum_buffer_pointer *datum_buffer_pointer;
+
+    datum_buffer_pointer = (struct datum_buffer_pointer *)mmap(0, datum_size + buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+    if (datum_buffer_pointer == MAP_FAILED) {
+        perror("---- mmap failed");
+        return 1;
+    }
+
+    printf("---- Read messages in buffer\n");
+
+    for (int i = 0; i < buffer_length; i++)
+    {
+        printf("------ Message - Id : %i, Datetime : %i, Key : %i\n", datum_buffer_pointer->buffer[i].id, datum_buffer_pointer->buffer[i].datetime, datum_buffer_pointer->buffer[i].key);
+    }
+
+    /*********************************************************************************************/
+    // Terminate read process
+    /*********************************************************************************************/
     printf("-- Terminate reader \n");
-    munmap(counters_pointer, page_size);
+
+    munmap(datum_pointer, datum_size);
+    munmap(datum_buffer_pointer, datum_size + buffer_size);
     close(fd);
 
     printf("-- Reader - END \n\n");
@@ -127,37 +206,67 @@ int reader_app(){
 
 
 int writer_app(){
-    printf("- Writer -\n");
+    printf("------ Writer ------\n");
     int fd;
-    struct datum counters, *counters_pointer;
-    long page_size = sizeof(counters);
+    struct datum *datum_pointer;
+    long datum_size = sizeof(datum);
 
-    /*******************************/
+    /*********************************************************************************************/
+    // Access shared memory object
+    /*********************************************************************************************/
     printf("-- shm_open()\n");
 
     fd = shm_open(buffer_name, O_RDWR, S_IRWXO|S_IRWXG|S_IRWXU);
 
     if ( fd == -1 ) {
-        perror("--- shm_open failure");
+        perror("---- shm_open failure");
         return 1;
     }
 
-    /*******************************/
-    printf("-- mmap - Read stored data \n");
+    /*********************************************************************************************/
+    // Map memory object used to hold metadata
+    /*********************************************************************************************/
+    printf("-- mmap - Metadata \n");
 
-    counters_pointer = (struct datum *)mmap(0, page_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    datum_pointer = (struct datum *)mmap(0, datum_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
-    if (counters_pointer == MAP_FAILED) {
-        perror("--- mmap failed");
+    if (datum_pointer == MAP_FAILED) {
+        perror("---- mmap failed");
         return 1;
     }
 
-    printf("-- Increment counters\n");
-    counters_pointer->totalProducers = counters_pointer->totalProducers + 1;
-    counters_pointer->totalConsumers = counters_pointer->totalConsumers + 1;
+    printf("---- Increment counters\n");
+    datum_pointer->totalProducers += 1;
+    datum_pointer->totalConsumers += 1;
 
+    /*********************************************************************************************/
+    // Map memory object used to hold metadata + buffer
+    /*********************************************************************************************/
+    printf("-- mmap - Metadata + Buffer \n");
+    int buffer_length = datum_pointer->buffer_length;
+    long buffer_size = sizeof(message) * buffer_length;
+
+    struct datum_buffer_pointer *datum_buffer_pointer;
+
+    datum_buffer_pointer = (struct datum_buffer_pointer *)mmap(0, datum_size + buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+    if (datum_buffer_pointer == MAP_FAILED) {
+        perror("---- mmap failed");
+        return 1;
+    }
+
+    printf("---- Update messages in buffer\n");
+
+    for (int i = 0; i < buffer_length; i++)
+    {
+        datum_buffer_pointer->buffer[i].datetime = datum_buffer_pointer->buffer[i].datetime + 1;
+    }
+
+    /*********************************************************************************************/
+    // Terminate write process
+    /*********************************************************************************************/
     printf("-- Terminate Writer\n");
-    munmap(counters_pointer, page_size);
+    munmap(datum_pointer, datum_size);
     close(fd);
 
     printf("-- Writer - END \n\n");
@@ -165,6 +274,14 @@ int writer_app(){
 }
 
 int terminate_app() {
+    printf("------ Finalizer ------\n");
+
+    /*********************************************************************************************/
+    // Realease shared memory object
+    /*********************************************************************************************/
+    printf("-- Terminate application \n");
+
     shm_unlink(buffer_name);
+
     return 0;
 }
