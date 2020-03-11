@@ -11,6 +11,7 @@ int get_file_descriptor(char buffer_name[]) {
 
     if ( fd == -1 ) {
         perror("---- shm_open failure");
+        //TODO
         //return 1;
     }
 

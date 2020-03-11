@@ -6,5 +6,5 @@
 ```bash
 $ cd to/project/path
 $ make
-$ ./main
+$ ./creator
 ```

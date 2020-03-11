@@ -21,10 +21,10 @@ struct datum {
     int totalConsumers;
 } datum;
 
-struct datum_buffer{
+struct datum_buffer {
     struct datum metadata;
     struct message buffer[];
-} foo;
+} datum_buffer;
 
 // To be used only by producers and consumers (NOT Creator)
 int get_file_descriptor(char buffer_name[]);
