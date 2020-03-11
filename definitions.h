@@ -1,3 +1,6 @@
+#ifndef DEFINITIONS_H
+#define DEFINITIONS_H
+
 struct producer {
 
 };
@@ -18,8 +21,14 @@ struct datum {
     int totalConsumers;
 } datum;
 
-struct datum_buffer_pointer{
+struct datum_buffer{
     struct datum metadata;
     struct message buffer[];
 } foo;
 
+// To be used only by producers and consumers (NOT Creator)
+int get_file_descriptor(char buffer_name[]);
+struct datum *get_datum(long map_size, int fd);
+struct datum_buffer *get_datum_buffer(long map_size, int fd);
+
+#endif //DEFINITIONS_h

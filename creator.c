@@ -20,13 +20,13 @@ int terminate_app();
 
 int main(int argc, char** argv) {
     init_app();
-    reader_app();
-    writer_app();
-    reader_app();
-    writer_app();
-    writer_app();
-    reader_app();
-    terminate_app();
+    // reader_app();
+    // writer_app();
+    // reader_app();
+    // writer_app();
+    // writer_app();
+    // reader_app();
+    //terminate_app();
 }
 
 int init_app() {
@@ -35,7 +35,7 @@ int init_app() {
     int buffer_length = 8;                                  // TODO: receive as argument
     int fd;                                                 // File Descriptor
     struct datum *datum_pointer;                            // Pointer to the section of memory that holds basic metadata
-    struct datum_buffer_pointer *datum_buffer_pointer;      // Pointer to the section that holds all data
+    struct datum_buffer *datum_buffer_pointer;      // Pointer to the section that holds all data
     long datum_size = sizeof(datum);
     long buffer_size = sizeof(message) * buffer_length;
 
@@ -48,6 +48,7 @@ int init_app() {
     /*********************************************************************************************/
     printf("-- shm_open()\n");
 
+    // TODO: remove O_TRUNC, add O_EXCL
     fd = shm_open(buffer_name, O_CREAT|O_RDWR|O_TRUNC, S_IRWXO|S_IRWXG|S_IRWXU);
 
     if ( fd == -1 ) {
@@ -65,12 +66,7 @@ int init_app() {
     /*********************************************************************************************/
     printf("-- mmap - Metadata\n");
 
-    datum_pointer = (struct datum *)mmap(0, datum_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-
-    if (datum_pointer == MAP_FAILED) {
-        perror("---- mmap failed");
-        return 1;
-    }
+    datum_pointer = get_datum(datum_size, fd);
 
     printf("---- Current data\n");
     printf("------- Buffer length: %i\n", datum_pointer->buffer_length);
@@ -78,9 +74,6 @@ int init_app() {
     printf("------- Total Consumers: %i\n", datum_pointer->totalConsumers);
 
     printf("-- Initializing counters\n");
-    // doesn't update the nmap
-    // counters = (struct datum){ .totalProducers=5, .totalConsumers=4};
-    // counters_pointer = &counters;
     datum_pointer->buffer_length = buffer_length;
     datum_pointer->totalProducers = 5;
     datum_pointer->totalConsumers = 10;
@@ -95,12 +88,7 @@ int init_app() {
     /*********************************************************************************************/
     printf("-- mmap - Metadata + Buffer\n");
 
-    datum_buffer_pointer = (struct datum_buffer_pointer *)mmap(0, datum_size + buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-
-    if (datum_buffer_pointer == MAP_FAILED) {
-        perror("---- mmap failed");
-        return 1;
-    }
+    datum_buffer_pointer = get_datum_buffer(datum_size + buffer_size, fd);
 
     // TODO: Should we initialize to something specific?
     // struct message buffer[buffer_length];
@@ -144,24 +132,14 @@ int reader_app(){
     /*********************************************************************************************/
     printf("-- shm_open()\n");
 
-    fd = shm_open(buffer_name, O_RDWR, S_IRWXO|S_IRWXG|S_IRWXU);
-
-    if ( fd == -1 ) {
-        perror("---- shm_open failure");
-        return 1;
-    }
+    fd = get_file_descriptor(buffer_name);
 
     /*********************************************************************************************/
     // Map memory object used to hold metadata
     /*********************************************************************************************/
     printf("-- mmap - Metadata \n");
 
-    datum_pointer = (struct datum *)mmap(0, datum_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-
-    if (datum_pointer == MAP_FAILED) {
-        perror("---- mmap failed");
-        return 1;
-    }
+    datum_pointer = get_datum(datum_size, fd);
 
     printf("-- Stored data\n");
     printf("---- Buffer Length: %i\n", datum_pointer->buffer_length);
@@ -175,14 +153,8 @@ int reader_app(){
     int buffer_length = datum_pointer->buffer_length;
     long buffer_size = sizeof(message) * buffer_length;
 
-    struct datum_buffer_pointer *datum_buffer_pointer;
-
-    datum_buffer_pointer = (struct datum_buffer_pointer *)mmap(0, datum_size + buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-
-    if (datum_buffer_pointer == MAP_FAILED) {
-        perror("---- mmap failed");
-        return 1;
-    }
+    struct datum_buffer *datum_buffer_pointer;
+    datum_buffer_pointer = get_datum_buffer(datum_size + buffer_size, fd);
 
     printf("---- Read messages in buffer\n");
 
@@ -216,24 +188,14 @@ int writer_app(){
     /*********************************************************************************************/
     printf("-- shm_open()\n");
 
-    fd = shm_open(buffer_name, O_RDWR, S_IRWXO|S_IRWXG|S_IRWXU);
-
-    if ( fd == -1 ) {
-        perror("---- shm_open failure");
-        return 1;
-    }
+    fd = get_file_descriptor(buffer_name);
 
     /*********************************************************************************************/
     // Map memory object used to hold metadata
     /*********************************************************************************************/
     printf("-- mmap - Metadata \n");
 
-    datum_pointer = (struct datum *)mmap(0, datum_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-
-    if (datum_pointer == MAP_FAILED) {
-        perror("---- mmap failed");
-        return 1;
-    }
+    datum_pointer = get_datum(datum_size, fd);
 
     printf("---- Increment counters\n");
     datum_pointer->totalProducers += 1;
@@ -246,14 +208,8 @@ int writer_app(){
     int buffer_length = datum_pointer->buffer_length;
     long buffer_size = sizeof(message) * buffer_length;
 
-    struct datum_buffer_pointer *datum_buffer_pointer;
-
-    datum_buffer_pointer = (struct datum_buffer_pointer *)mmap(0, datum_size + buffer_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-
-    if (datum_buffer_pointer == MAP_FAILED) {
-        perror("---- mmap failed");
-        return 1;
-    }
+    struct datum_buffer *datum_buffer_pointer;
+    datum_buffer_pointer = get_datum_buffer(datum_size + buffer_size, fd);
 
     printf("---- Update messages in buffer\n");
 
