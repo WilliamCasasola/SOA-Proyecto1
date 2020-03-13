@@ -6,7 +6,13 @@ struct producer {
 };
 
 struct consumer {
-
+    int pid;
+    double avg;
+    int total_messages;
+    int total_time_blocked;
+    int total_time_waiting;
+    char* buffer_name;
+    bool is_alive;
 };
 
 struct message {
@@ -19,12 +25,16 @@ struct datum {
     int buffer_length;
     int totalProducers;
     int totalConsumers;
+    char* buffer_sem;
+    char* consumer_count_sem;
 } datum;
 
 struct datum_buffer {
     struct datum metadata;
     struct message buffer[];
 } datum_buffer;
+
+
 
 // To be used only by producers and consumers (NOT Creator)
 int get_file_descriptor(char buffer_name[]);
