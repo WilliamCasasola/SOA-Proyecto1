@@ -2,242 +2,110 @@
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
-#include <string.h>
 #include <unistd.h>
-#include <fcntl.h>
+#include <string.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/stat.h>
+#include <semaphore.h>
+#include <signal.h>
+#include <math.h>
+#include <time.h> 
+#include <string.h>
+#include "shared.h"
 
-#include "definitions.h"
 
-char buffer_name[] = "project_1";
+char* bufferName;
+int bufferLength = 10;
+int metadataSize;
+int semaphoresSize;
+int bufferSize;
+int totalSize;
 
-int init_app();
-int reader_app();
-int writer_app();
-int terminate_app();
+void parseAndValidateParams();
+void create();
+void randStr(char *dest);
 
-int main(int argc, char** argv) {
-    init_app();
-    // reader_app();
-    // writer_app();
-    // reader_app();
-    // writer_app();
-    // writer_app();
-    // reader_app();
-    //terminate_app();
+int main(int argc, char** argv) {    
+    parseAndValidateParams(argc, argv);
+    metadataSize = sizeof(struct Metadata);
+    semaphoresSize = sizeof(struct Semaphores);
+    bufferSize = bufferLength * sizeof(struct Message);
+    totalSize = metadataSize + semaphoresSize + bufferSize;
+    srand(time(NULL));
+    create();
+    exit(EXIT_SUCCESS);
 }
 
-int init_app() {
-    printf("------ Initializer ------\n");
-
-    int buffer_length = 8;                                  // TODO: receive as argument
-    int fd;                                                 // File Descriptor
-    struct datum *datum_pointer;                            // Pointer to the section of memory that holds basic metadata
-    struct datum_buffer *datum_buffer_pointer;      // Pointer to the section that holds all data
-    long datum_size = sizeof(datum);
-    long buffer_size = sizeof(message) * buffer_length;
-
-    printf("---- System Page size: %ld\n", sysconf(_SC_PAGE_SIZE));
-    printf("---- Metadata Size: %ld\n", datum_size);
-    printf("---- Buffer Size: %ld\n", buffer_size);
-
-    /*********************************************************************************************/
-    // Create shared memory object
-    /*********************************************************************************************/
-    printf("-- shm_open()\n");
-
-    // TODO: remove O_TRUNC, add O_EXCL
-    fd = shm_open(buffer_name, O_CREAT|O_RDWR|O_TRUNC, S_IRWXO|S_IRWXG|S_IRWXU);
-
-    if ( fd == -1 ) {
-        perror("---- shm_open failure\n");
-        return 1;
+void parseAndValidateParams(int argc, char** argv){
+    int withErrors = 0;
+    if(argc >= 2){
+        if(strcmp(argv[1], "-h") == 0){
+            printf("\n%s\n","Application receives up to two parameters, with the first being mandatory:\n\t Buffer Name: char*\n\t Buffer Length: +int\n");
+            exit(EXIT_SUCCESS);
+        }else{
+            bufferName = argv[1];
+        }
+        if(argc == 3 ){
+            bufferLength = atoi(argv[2]);
+            if(bufferLength <= 0){
+                withErrors = 1;
+                printf("\n%s\n","Buffer Length must be a positive integer.");
+            }
+        }
+    }else{
+        withErrors = 1;
     }
-
-    if((ftruncate(fd, datum_size + buffer_size)) == -1){
-        perror("---- ftruncate failure\n");
-        return 1;
+    if(withErrors){
+        printf("\n%s\n\n","Parameters type does not match, please use -h to see usage.");
+        exit(EXIT_FAILURE);
     }
-
-    /*********************************************************************************************/
-    // Map memory object used to hold metadata
-    /*********************************************************************************************/
-    printf("-- mmap - Metadata\n");
-
-    datum_pointer = get_datum(datum_size, fd);
-
-    printf("---- Current data\n");
-    printf("------- Buffer length: %i\n", datum_pointer->buffer_length);
-    printf("------- Total Producers: %i\n", datum_pointer->totalProducers);
-    printf("------- Total Consumers: %i\n", datum_pointer->totalConsumers);
-
-    printf("-- Initializing counters\n");
-    datum_pointer->buffer_length = buffer_length;
-    datum_pointer->totalProducers = 5;
-    datum_pointer->totalConsumers = 10;
-
-    printf("---- Current data\n");
-    printf("------- Buffer length: %i\n", datum_pointer->buffer_length);
-    printf("------- Total Producers: %i\n", datum_pointer->totalProducers);
-    printf("------- Total Consumers: %i\n", datum_pointer->totalConsumers);
-
-    /*********************************************************************************************/
-    // Map memory object used to hold metadata + buffer
-    /*********************************************************************************************/
-    printf("-- mmap - Metadata + Buffer\n");
-
-    datum_buffer_pointer = get_datum_buffer(datum_size + buffer_size, fd);
-
-    // TODO: Should we initialize to something specific?
-    // struct message buffer[buffer_length];
-    // for (int i = 0; i < buffer_length; i++)
-    // {
-    //     buffer[i] = (struct message) { i, i * 2, rand() % 4};
-    // }
-    for (int i = 0; i < buffer_length; i++)
-    {
-        datum_buffer_pointer->buffer[i] = (struct message) { .id=i, .datetime=i * 2, .key=rand() % 4};
-    }
-
-    printf("---- Messages in buffer\n");
-
-    for (int i = 0; i < buffer_length; i++)
-    {
-        printf("------- Message - Id : %i, Datetime : %i, Key : %i\n", datum_buffer_pointer->buffer[i].id, datum_buffer_pointer->buffer[i].datetime, datum_buffer_pointer->buffer[i].key);
-    }
-
-    /*********************************************************************************************/
-    // Terminate init/create process
-    /*********************************************************************************************/
-    printf("-- Terminate init \n");
-
-    munmap(datum_pointer, datum_size);
-    munmap(datum_buffer_pointer, datum_size + buffer_size);
-    close(fd);
-
-    printf("-- Initializer - END \n\n");
-    return 0;
 }
 
-int reader_app(){
-    printf("------ Reader ------\n");
-    int fd;
-    struct datum *datum_pointer;
-    long datum_size = sizeof(datum);
-
-    /*********************************************************************************************/
-    // Access shared memory object
-    /*********************************************************************************************/
-    printf("-- shm_open()\n");
-
-    fd = get_file_descriptor(buffer_name);
-
-    /*********************************************************************************************/
-    // Map memory object used to hold metadata
-    /*********************************************************************************************/
-    printf("-- mmap - Metadata \n");
-
-    datum_pointer = get_datum(datum_size, fd);
-
-    printf("-- Stored data\n");
-    printf("---- Buffer Length: %i\n", datum_pointer->buffer_length);
-    printf("---- Total Producers: %i\n", datum_pointer->totalProducers);
-    printf("---- Total Consumers: %i\n", datum_pointer->totalConsumers);
-
-    /*********************************************************************************************/
-    // Map memory object used to hold metadata + buffer
-    /*********************************************************************************************/
-    printf("-- mmap - Metadata + Buffer \n");
-    int buffer_length = datum_pointer->buffer_length;
-    long buffer_size = sizeof(message) * buffer_length;
-
-    struct datum_buffer *datum_buffer_pointer;
-    datum_buffer_pointer = get_datum_buffer(datum_size + buffer_size, fd);
-
-    printf("---- Read messages in buffer\n");
-
-    for (int i = 0; i < buffer_length; i++)
-    {
-        printf("------ Message - Id : %i, Datetime : %i, Key : %i\n", datum_buffer_pointer->buffer[i].id, datum_buffer_pointer->buffer[i].datetime, datum_buffer_pointer->buffer[i].key);
+void randStr(char *dest) {
+    char charset[] = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    int i = 10;
+    while (i-- > 0) {
+        size_t index = (double) rand() / RAND_MAX * (sizeof charset - 1);
+        *dest++ = charset[index];
     }
-
-    /*********************************************************************************************/
-    // Terminate read process
-    /*********************************************************************************************/
-    printf("-- Terminate reader \n");
-
-    munmap(datum_pointer, datum_size);
-    munmap(datum_buffer_pointer, datum_size + buffer_size);
-    close(fd);
-
-    printf("-- Reader - END \n\n");
-    return 0;
+    *dest = '\0';
 }
 
-
-int writer_app(){
-    printf("------ Writer ------\n");
-    int fd;
-    struct datum *datum_pointer;
-    long datum_size = sizeof(datum);
-
-    /*********************************************************************************************/
-    // Access shared memory object
-    /*********************************************************************************************/
-    printf("-- shm_open()\n");
-
-    fd = get_file_descriptor(buffer_name);
-
-    /*********************************************************************************************/
-    // Map memory object used to hold metadata
-    /*********************************************************************************************/
-    printf("-- mmap - Metadata \n");
-
-    datum_pointer = get_datum(datum_size, fd);
-
-    printf("---- Increment counters\n");
-    datum_pointer->totalProducers += 1;
-    datum_pointer->totalConsumers += 1;
-
-    /*********************************************************************************************/
-    // Map memory object used to hold metadata + buffer
-    /*********************************************************************************************/
-    printf("-- mmap - Metadata + Buffer \n");
-    int buffer_length = datum_pointer->buffer_length;
-    long buffer_size = sizeof(message) * buffer_length;
-
-    struct datum_buffer *datum_buffer_pointer;
-    datum_buffer_pointer = get_datum_buffer(datum_size + buffer_size, fd);
-
-    printf("---- Update messages in buffer\n");
-
-    for (int i = 0; i < buffer_length; i++)
-    {
-        datum_buffer_pointer->buffer[i].datetime = datum_buffer_pointer->buffer[i].datetime + 1;
+void create(){
+    int sm = shm_open(bufferName, O_CREAT|O_RDWR|O_TRUNC|O_EXCL, S_IRWXO|S_IRWXG|S_IRWXU);
+    if(errno == EEXIST){
+        printf("\n%s\n\n","The Buffer Name already exists");
+        exit(EXIT_FAILURE);
+    }else{
+        if((ftruncate(sm, totalSize)) == -1){
+            perror("---- ftruncate failure\n");
+            close(sm);
+            shm_unlink(bufferName);
+            exit(EXIT_FAILURE);
+        }else{
+            void* map = mmap(0, totalSize, PROT_READ | PROT_WRITE, MAP_SHARED, sm, 0);
+            struct Metadata* metadata = ((struct Metadata*) map);
+            metadata->bufferLength = bufferLength;
+            metadata->pCount = 0;
+            metadata->cCount = 0;
+            metadata->cIndex = 0;
+            metadata->pIndex = 0;
+            metadata->queued = 0;
+            metadata->terminate = 0;
+            struct Semaphores* semaphores = ((struct Semaphores*) map) + metadataSize;
+            randStr(semaphores->consume);
+            randStr(semaphores->produce);
+            randStr(semaphores->metadata);
+            sem_t* comsumeS = sem_open(semaphores->consume, O_CREAT, S_IRWXO|S_IRWXG|S_IRWXU, 1);
+            sem_close(comsumeS);
+            sem_t* produceS = sem_open(semaphores->produce, O_CREAT, S_IRWXO|S_IRWXG|S_IRWXU, 1);
+            sem_close(produceS);
+            sem_t* metadataS = sem_open(semaphores->metadata, O_CREAT, S_IRWXO|S_IRWXG|S_IRWXU, 1);
+            sem_close(metadataS);
+            munmap(map, totalSize);
+            close(sm);
+            printf("Shared Memory with name \"%s\" has been created with Buffer Length of %i\n", bufferName, bufferLength);
+        }
     }
-
-    /*********************************************************************************************/
-    // Terminate write process
-    /*********************************************************************************************/
-    printf("-- Terminate Writer\n");
-    munmap(datum_pointer, datum_size);
-    close(fd);
-
-    printf("-- Writer - END \n\n");
-    return 0;
-}
-
-int terminate_app() {
-    printf("------ Finalizer ------\n");
-
-    /*********************************************************************************************/
-    // Realease shared memory object
-    /*********************************************************************************************/
-    printf("-- Terminate application \n");
-
-    shm_unlink(buffer_name);
-
-    return 0;
 }
