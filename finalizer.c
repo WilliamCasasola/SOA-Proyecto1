@@ -76,6 +76,7 @@ void finalizePC(){
         void * buffer = ((void*) map) + metadataSize + semaphoresSize;
         struct Semaphores* semaphores = ((struct Semaphores*) map) + metadataSize;
         sem_t * metadataS = sem_open(semaphores->metadata, O_RDWR);
+        sem_t * produceS = sem_open(semaphores->produce, O_RDWR);
         sem_wait(metadataS);
         metadata->terminate = 1;
         int cCount = metadata->cCount;
@@ -85,7 +86,6 @@ void finalizePC(){
             sem_wait(metadataS);
             wait = metadata->queued;
             sem_post(metadataS);
-            sem_t * produceS = sem_open(semaphores->produce, O_RDWR);
             sem_wait(produceS);
             while (wait == metadata->bufferLength){
                 raise(SIGSTOP);
@@ -104,6 +104,8 @@ void finalizePC(){
             cCount--;
             kill(-1, SIGCONT);
         }
+        sem_close(metadataS);
+        sem_close(produceS);
         munmap(map, totalSize);
         close(sm);
     }else{

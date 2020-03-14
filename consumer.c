@@ -86,6 +86,7 @@ void consume(){
         void * buffer = ((void*) map) + metadataSize + semaphoresSize;
         int terminate = 0;
         sem_t * metadataS = sem_open(semaphores->metadata, O_RDWR);
+        sem_t * consumeS = sem_open(semaphores->consume, O_RDWR);
         sem_wait(metadataS);
         terminate = metadata->terminate;
         if(!terminate){
@@ -94,6 +95,8 @@ void consume(){
         sem_post(metadataS);
         if(terminate){
             printf("The Shared Memory has been marked to terminate, can't create new Consumer\n");
+            sem_close(metadataS);
+            sem_close(consumeS);
             munmap(map, totalSize);
             close(sm);
         }else{
@@ -103,7 +106,6 @@ void consume(){
                 sem_wait(metadataS);
                 wait = metadata->queued;
                 sem_post(metadataS);
-                sem_t * consumeS = sem_open(semaphores->consume, O_RDWR);
                 sem_wait(consumeS);
                 while(wait == 0){
                     raise(SIGSTOP);
@@ -126,6 +128,8 @@ void consume(){
                 sem_post(consumeS);
                 kill(-1, SIGCONT);
             }
+            sem_close(metadataS);
+            sem_close(consumeS);
             finalize();
             munmap(map, totalSize);
             close(sm);
