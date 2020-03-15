@@ -21,6 +21,9 @@ int metadataSize;
 int semaphoresSize;
 int bufferSize;
 int totalSize;
+char lConsume[10];
+char lProduce[10];
+char lMetadata[10];
 
 void parseAndValidateParams();
 void create();
@@ -97,11 +100,14 @@ void create(){
             randStr(semaphores->consume);
             randStr(semaphores->produce);
             randStr(semaphores->metadata);
-            sem_t* comsumeS = sem_open(semaphores->consume, O_CREAT, S_IRWXO|S_IRWXG|S_IRWXU, 1);
+            strncpy(lConsume, semaphores->consume, 10);
+            strncpy(lProduce, semaphores->produce, 10);
+            strncpy(lMetadata, semaphores->metadata, 10);
+            sem_t* comsumeS = sem_open(lConsume, O_CREAT, S_IRWXO|S_IRWXG|S_IRWXU, 1);
             sem_close(comsumeS);
-            sem_t* produceS = sem_open(semaphores->produce, O_CREAT, S_IRWXO|S_IRWXG|S_IRWXU, 1);
+            sem_t* produceS = sem_open(lProduce, O_CREAT, S_IRWXO|S_IRWXG|S_IRWXU, 1);
             sem_close(produceS);
-            sem_t* metadataS = sem_open(semaphores->metadata, O_CREAT, S_IRWXO|S_IRWXG|S_IRWXU, 1);
+            sem_t* metadataS = sem_open(lMetadata, O_CREAT, S_IRWXO|S_IRWXG|S_IRWXU, 1);
             sem_close(metadataS);
             munmap(map, totalSize);
             close(sm);

@@ -20,6 +20,9 @@ int semaphoresSize;
 int bufferSize;
 int totalSize;
 struct stat smInfo;
+char lConsume[10];
+char lProduce[10];
+char lMetadata[10];
 
 void parseAndValidateParams();
 void finalizePC();
@@ -53,15 +56,10 @@ void parseAndValidateParams(int argc, char** argv){
 }
 
 void finalizeSM(){
-    char tempName[strlen(bufferName)];
-    strcpy(tempName, bufferName);
     shm_unlink(bufferName);
-    strcat(tempName, "c");
-    sem_unlink(tempName);
-    strcat(tempName, "p");
-    sem_unlink(tempName);
-    strcat(tempName, "m");
-    sem_unlink(tempName);
+    sem_unlink(lConsume);
+    sem_unlink(lProduce);
+    sem_unlink(lMetadata);
     printf("Shared Memory with name \"%s\" has been destroyed\n", bufferName);
 }
 
@@ -74,9 +72,12 @@ void finalizePC(){
         bufferSize = metadata->bufferLength * sizeof(struct Message);
         totalSize = metadataSize + semaphoresSize + bufferSize;
         void * buffer = ((void*) map) + metadataSize + semaphoresSize;
-        struct Semaphores* semaphores = ((struct Semaphores*) map) + metadataSize;
-        sem_t * metadataS = sem_open(semaphores->metadata, O_RDWR);
-        sem_t * produceS = sem_open(semaphores->produce, O_RDWR);
+        struct Semaphores* semaphores = ((struct Semaphores*) map) + metadataSize;        
+        strncpy(lConsume, semaphores->consume, 10);
+        strncpy(lProduce, semaphores->produce, 10);
+        strncpy(lMetadata, semaphores->metadata, 10);
+        sem_t * metadataS = sem_open(lMetadata, O_RDWR);
+        sem_t * produceS = sem_open(lProduce, O_RDWR);
         sem_wait(metadataS);
         metadata->terminate = 1;
         int cCount = metadata->cCount;

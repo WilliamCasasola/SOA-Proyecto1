@@ -18,12 +18,15 @@
 char* bufferName;
 int alive;
 int malicious;
-double mean;
 int consumed;
 int metadataSize;
 int semaphoresSize;
 int bufferSize;
 int totalSize;
+char lConsume[10];
+char lProduce[10];
+char lMetadata[10];
+double mean;
 struct stat smInfo;
 
 void parseAndValidateParams();
@@ -83,10 +86,13 @@ void consume(){
         bufferSize = metadata->bufferLength * sizeof(struct Message);
         totalSize = metadataSize + semaphoresSize + bufferSize;
         struct Semaphores* semaphores = ((struct Semaphores*) map) + metadataSize;
+        strncpy(lConsume, semaphores->consume, 10);
+        strncpy(lProduce, semaphores->produce, 10);
+        strncpy(lMetadata, semaphores->metadata, 10);
         void * buffer = ((void*) map) + metadataSize + semaphoresSize;
+        sem_t * metadataS = sem_open(lMetadata, O_RDWR);
+        sem_t * consumeS = sem_open(lConsume, O_RDWR);
         int terminate = 0;
-        sem_t * metadataS = sem_open(semaphores->metadata, O_RDWR);
-        sem_t * consumeS = sem_open(semaphores->consume, O_RDWR);
         sem_wait(metadataS);
         terminate = metadata->terminate;
         if(!terminate){
@@ -121,6 +127,7 @@ void consume(){
                     if(message->key == (getpid()%5)){
                         malicious = 1;
                     }
+
                 }
                 metadata->cIndex++;
                 metadata->queued--;
@@ -128,13 +135,15 @@ void consume(){
                 sem_post(consumeS);
                 kill(-1, SIGCONT);
             }
+            sem_wait(metadataS);
+            metadata->cCount--;
+            sem_post(metadataS);
+            finalize();
             sem_close(metadataS);
             sem_close(consumeS);
-            finalize();
             munmap(map, totalSize);
             close(sm);
         }
-        
     }else{
         printf("\nCould not open shared memory with name %s.\n\n", bufferName);
         exit(EXIT_FAILURE);
