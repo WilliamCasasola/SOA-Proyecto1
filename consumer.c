@@ -117,13 +117,12 @@ void consume(){
                 sem_post(metadataS);
                 sem_wait(consumeS);
                 while(wait == 0){
-                    printf("Nothing in the buffer.\n");
+                    printf("\nBuffer empty.\n");
                     raise(SIGSTOP);
                     sem_wait(metadataS);
                     wait = metadata->queued;
                     sem_post(metadataS);
                 }
-                printf("Consuming\n");
                 struct Message* message = ((struct Message*) buffer) + ((metadata->cIndex % metadata->bufferLength) * sizeof(struct Message));
                 printf("\n\nConsumer with id %i consumed a message from process with id %i\n\n", getpid(), message->pid);
                 if(message->terminate || message->key == (getpid()%5)){

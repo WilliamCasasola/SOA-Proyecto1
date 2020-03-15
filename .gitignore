@@ -4,3 +4,4 @@ consumer
 finalizer
 .DS_Store
 .vscode/
+*.dSYM/

@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-pthread -lm -lrt -g
+CFLAGS=-pthread -lm -g
 EXTRA_CFLAGS=-Wall -Wextra
 UNAME := $(shell uname)
 

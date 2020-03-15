@@ -81,7 +81,14 @@ void finalizePC(){
         sem_wait(metadataS);
         metadata->terminate = 1;
         int cCount = metadata->cCount;
+        int pCount = metadata->pCount;
         sem_post(metadataS);
+        while(pCount > 0){
+            kill(-1, SIGCONT);
+            sem_wait(metadataS);
+            pCount = metadata->pCount;
+            sem_post(metadataS);
+        }
         int wait = 0;
         while(cCount > 0){
             sem_wait(metadataS);
