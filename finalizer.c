@@ -60,7 +60,7 @@ void finalizeSM(){
     sem_unlink(lConsume);
     sem_unlink(lProduce);
     sem_unlink(lMetadata);
-    printf("\n\nShared Memory with name \"%s\" has been destroyed\n", bufferName);
+    printf("\n\nShared Memory with name \"%s\" has been destroyed.\n", bufferName);
 }
 
 void finalizePC(){
