@@ -53,16 +53,16 @@ void parseAndValidateParams(int argc, char** argv){
  
     if(argc >= 2){
         if(strcmp(argv[1], "-h") == 0){
-            printf("\n%s\n","Application receives up to two parameters, with the first being mandatory:\n\t Buffer Name: char*\n\t Consumer Mean: +double\n");
+            printf("\n%s\n","Application receives up to two parameters, with the first being mandatory:\n\t Buffer Name: char*\n\t Producer Mean: +double\n");
             exit(EXIT_SUCCESS);
         }else{
             bufferName = argv[1];
         }
         if(argc == 3 ){
-            mean = atof(argv[3]);
+            mean = atof(argv[2]);
             if(mean <= 0){
                 withErrors = 1;
-                printf("\n%s\n","Consumer Mean must be a positive double.");
+                printf("\n%s\n","Producer Mean must be a positive double.");
             }
         }
     }else{
@@ -128,13 +128,13 @@ void produce(){
                     sem_post(metadataS);
                 }
                 if(alive){
-                    struct Message* message = ((struct Message*) buffer) + ((metadata->pIndex % metadata->bufferLength) * sizeof(struct Message));
+                    struct Message* message = (struct Message*) ((buffer) + ((metadata->pIndex % metadata->bufferLength) * sizeof(struct Message)));
                     message->pid = getpid();
                     message->datetime = time(NULL);
                     message->key = (rand() % 5);
                     message->terminate = 0;            
                     metadata->pIndex++;
-                    printf("\n\nProducer with id %i generated a message\n\n", getpid());
+                    printf("\n\nProducer with id %i generated a message.\n\n", getpid());
                     produced++;
                     sem_wait(metadataS);
                     metadata->queued++;
@@ -160,9 +160,9 @@ void produce(){
 
 void finalize(){
     if(malicious){
-        printf("\n\nProducer with process is %i has received a malicious message, it will finalize. \n\tProduced Messages: %i\n\n", getpid(), produced);    
+        printf("\n\nProducer with process id %i has received a malicious message, it will finalize. \n\tProduced Messages: %i\n\n", getpid(), produced);    
     }else{
-        printf("\n\nProducer with process is %i has been ordered to finalize. \n\tProduced Messages: %i\n\n", getpid(), produced);    
+        printf("\n\nProducer with process id %i has been ordered to finalize. \n\tProduced Messages: %i\n\n", getpid(), produced);    
     }   
 }
 

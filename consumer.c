@@ -59,7 +59,7 @@ void parseAndValidateParams(int argc, char** argv){
             bufferName = argv[1];
         }
         if(argc == 3 ){
-            mean = atof(argv[3]);
+            mean = atof(argv[2]);
             if(mean <= 0){
                 withErrors = 1;
                 printf("\n%s\n","Consumer Mean must be a positive double.");
@@ -123,14 +123,13 @@ void consume(){
                     wait = metadata->queued;
                     sem_post(metadataS);
                 }
-                struct Message* message = ((struct Message*) buffer) + ((metadata->cIndex % metadata->bufferLength) * sizeof(struct Message));
-                printf("\n\nConsumer with id %i consumed a message from process with id %i\n\n", getpid(), message->pid);
+                struct Message* message = (struct Message*) ((buffer) + ((metadata->cIndex % metadata->bufferLength) * sizeof(struct Message)));
+                printf("\n\nConsumer with id %i consumed a message.\n\n", getpid());
                 if(message->terminate || message->key == (getpid()%5)){
                     alive = 0;
                     if(message->key == (getpid()%5)){
                         malicious = 1;
                     }
-
                 }
                 metadata->cIndex++;
                 consumed++;
@@ -143,6 +142,7 @@ void consume(){
             sem_wait(metadataS);
             metadata->cCount--;
             sem_post(metadataS);
+            kill(-1, SIGCONT);
             finalize();
             sem_close(metadataS);
             sem_close(consumeS);

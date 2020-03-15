@@ -60,7 +60,7 @@ void finalizeSM(){
     sem_unlink(lConsume);
     sem_unlink(lProduce);
     sem_unlink(lMetadata);
-    printf("Shared Memory with name \"%s\" has been destroyed\n", bufferName);
+    printf("\n\nShared Memory with name \"%s\" has been destroyed\n", bufferName);
 }
 
 void finalizePC(){
@@ -101,19 +101,28 @@ void finalizePC(){
                 wait = metadata->queued;
                 sem_post(metadataS);
             }
-            struct Message* message = ((struct Message*) buffer) + ((metadata->pIndex % metadata->bufferLength) * sizeof(struct Message));
+            struct Message* message = (struct Message*) ((buffer) + ((metadata->pIndex % metadata->bufferLength) * sizeof(struct Message)));
             message->pid = getpid();
             message->datetime = time(NULL);
             message->key = -1;
             message->terminate = 1;            
             metadata->pIndex++;
-            printf("\n\nFinalizer created a terminate message,\n\n");
+            printf("\n\nFinalizer created a terminate message.\n\n");
             sem_post(produceS);
             sem_wait(metadataS);
             metadata->queued++;
             sem_post(metadataS);
             cCount--;
             kill(-1, SIGCONT);
+        }
+        sem_wait(metadataS);
+        cCount = metadata->cCount;
+        sem_post(metadataS);
+        while (cCount > 0){
+            raise(SIGSTOP);
+            sem_wait(metadataS);
+            cCount = metadata->cCount;
+            sem_post(metadataS);
         }
         sem_close(metadataS);
         sem_close(produceS);
