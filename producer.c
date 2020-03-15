@@ -103,14 +103,13 @@ bool killProducer(int sm, void *map, sem_t *produceS, struct Metadata *metadata,
 {
    
     before = clock();
-
     //Validates the terminate variable for killing producer
     int terminate = 0;
     sem_wait(metadataS);
     terminate = metadata->terminate;
     sem_post(metadataS);
     difference = clock() - before;
-    pStats->timeBlocked += difference * 1000 / CLOCKS_PER_SEC;
+    pStats->timeBlocked += ((double)difference)/CLOCKS_PER_SEC;
     if (!terminate)
     {
         if(increaseCount){
@@ -166,14 +165,24 @@ void produce()
                 pStats->timeWaiting +=  ((double)difference)/CLOCKS_PER_SEC;
                 printf("time: %lf ", pStats->timeWaiting);
 
+                before = clock();
                 sem_wait(metadataS);
+                difference = clock() - before;
+                pStats->timeBlocked +=  ((double)difference)/CLOCKS_PER_SEC;
                 wait = metadata->queued;
                 sem_post(metadataS);
+
+                before = clock();
                 sem_wait(produceS);
+                difference = clock() - before;
+                pStats->timeBlocked +=  ((double)difference)/CLOCKS_PER_SEC;
                 while (wait >= metadata->bufferLength)
                 {
                     raise(SIGSTOP);
+                    before = clock();
                     sem_wait(metadataS);
+                    difference = clock() - before;
+                    pStats->timeBlocked +=  ((double)difference)/CLOCKS_PER_SEC;
                     wait = metadata->queued;
                     sem_post(metadataS);
                 }
@@ -186,8 +195,11 @@ void produce()
                 message->terminate = 1;
                 metadata->pIndex++;
                 metadata->queued++;
-
+                
+                before = clock();
                 sem_wait(metadataS);
+                difference = clock() - before;
+                pStats->timeBlocked +=  ((double)difference)/CLOCKS_PER_SEC;
                 printf("\n Producer with id %i produce a message from process with id %i\n Quantity of producers alive: %i\n Quantity of consumers alive: %i \n\n",
                  getpid(), message->pid, metadata->pCount, metadata->cCount);
                 metadata->queued++;

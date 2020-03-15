@@ -36,7 +36,6 @@ void finalize();
 double expDist(double lambda);
 
 int main(int argc, char** argv) {    
-    printf("Holaaa");
     parseAndValidateParams(argc, argv);
     metadataSize = sizeof(struct Metadata);
     semaphoresSize = sizeof(struct Semaphores);   
