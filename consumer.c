@@ -130,9 +130,11 @@ void consume(){
 
                 }
                 metadata->cIndex++;
-                metadata->queued--;
                 consumed++;
                 sem_post(consumeS);
+                sem_wait(metadataS);
+                metadata->queued--;
+                sem_post(metadataS);
                 kill(-1, SIGCONT);
             }
             sem_wait(metadataS);
