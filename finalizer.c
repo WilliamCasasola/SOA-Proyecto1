@@ -101,6 +101,7 @@ void finalizePC(){
             message->terminate = 1;            
             metadata->pIndex++;
             metadata->queued++;
+            printf("\n\nFinalizer created a terminate message,\n\n");
             sem_post(produceS);
             cCount--;
             kill(-1, SIGCONT);
