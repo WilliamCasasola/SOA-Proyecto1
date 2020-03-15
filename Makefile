@@ -1,9 +1,15 @@
 CC=gcc
-CFLAGS=-pthread -lm
+CFLAGS=-pthread -lm -lrt
 EXTRA_CFLAGS=-Wall -Wextra
+UNAME := $(shell uname)
 
-# TODO: Add other commands
-all: creator finalizer consumer
+ifeq ($(UNAME), Linux)
+	CCFLAGS += -lrt
+endif
+
+all: creator finalizer consumer producer
+
+
 
 creator: creator.c
 	$(CC) creator.c -o creator $(CFLAGS) $(EXTRA_CFLAGS)

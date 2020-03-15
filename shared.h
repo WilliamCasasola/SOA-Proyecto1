@@ -24,4 +24,12 @@ struct Semaphores {
 	char metadata[10];
 };
 
+struct producerConsumerStats
+{
+    int totalMessages;
+    double timeBlocked;
+    double timeWaiting;
+};
+
+
 #endif //SHARED_H

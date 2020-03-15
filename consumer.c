@@ -27,6 +27,7 @@ char lConsume[10];
 char lProduce[10];
 char lMetadata[10];
 double mean;
+
 struct stat smInfo;
 
 void parseAndValidateParams();
@@ -35,9 +36,10 @@ void finalize();
 double expDist(double lambda);
 
 int main(int argc, char** argv) {    
+    printf("Holaaa");
     parseAndValidateParams(argc, argv);
     metadataSize = sizeof(struct Metadata);
-    semaphoresSize = sizeof(struct Semaphores);
+    semaphoresSize = sizeof(struct Semaphores);   
     srand(time(NULL));
     consume();
     exit(EXIT_SUCCESS);
@@ -49,6 +51,7 @@ void parseAndValidateParams(int argc, char** argv){
     consumed = 0;
     alive = 1;
     malicious = 0;
+ 
     if(argc >= 2){
         if(strcmp(argv[1], "-h") == 0){
             printf("\n%s\n","Application receives up to two parameters, with the first being mandatory:\n\t Buffer Name: char*\n\t Consumer Mean: +double\n");
@@ -78,7 +81,7 @@ double expDist(double lambda) {
 }
 
 void consume(){
-    int sm;
+    int sm;   
     if((sm = shm_open(bufferName, O_RDWR, 0)) != -1){
         fstat(sm, &smInfo);
         void* map = mmap(0, smInfo.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, sm, 0);
@@ -92,6 +95,7 @@ void consume(){
         void * buffer = ((void*) map) + metadataSize + semaphoresSize;
         sem_t * metadataS = sem_open(lMetadata, O_RDWR);
         sem_t * consumeS = sem_open(lConsume, O_RDWR);
+        
         int terminate = 0;
         sem_wait(metadataS);
         terminate = metadata->terminate;
@@ -114,6 +118,7 @@ void consume(){
                 sem_post(metadataS);
                 sem_wait(consumeS);
                 while(wait == 0){
+                    printf("Nothing in the buffer.\n");
                     raise(SIGSTOP);
                     sem_wait(metadataS);
                     wait = metadata->queued;
