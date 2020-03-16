@@ -103,10 +103,12 @@ void finalizePC(){
                 cCount = metadata->cCount;
                 if(cCount == 0){
                     wait= -1;
-                }else{
+                    sem_post(metadataS);
+                }
+                else{
+                    sem_post(metadataS);
                     raise(SIGSTOP);
                 }
-                sem_post(metadataS);
             }
             struct Message* message = (struct Message*) ((buffer) + ((metadata->pIndex % metadata->bufferLength) * sizeof(struct Message)));
             message->pid = getpid();
