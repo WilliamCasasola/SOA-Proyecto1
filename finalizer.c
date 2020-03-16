@@ -93,9 +93,9 @@ void finalizePC(){
         int cCount = metadata->cCount;
         sem_post(metadataS);
         while(cCount > 0){
-            sem_wait(produceS);
             sem_wait(metadataS);
-            wait = metadata->queued;
+            wait = metadata->pIn;
+            metadata->pIn++;
             sem_post(metadataS);
             while (wait == metadata->bufferLength){
                 sem_wait(metadataS);
@@ -110,18 +110,23 @@ void finalizePC(){
                     raise(SIGSTOP);
                 }
             }
-            struct Message* message = (struct Message*) ((buffer) + ((metadata->pIndex % metadata->bufferLength) * sizeof(struct Message)));
-            message->pid = getpid();
-            message->datetime = time(NULL);
-            message->key = -1;
-            message->terminate = 1;            
-            metadata->pIndex++;
-            printf("\n\nFinalizer created a terminate message.\n\n");
-            sem_post(produceS);
-            sem_wait(metadataS);
-            metadata->queued++;
-            sem_post(metadataS);
-            kill(-1, SIGCONT);
+            if(cCount > 0){
+                sem_wait(produceS);
+                struct Message* message = (struct Message*) ((buffer) + ((metadata->pIndex % metadata->bufferLength) * sizeof(struct Message)));
+                message->pid = getpid();
+                message->datetime = time(NULL);
+                message->key = -1;
+                message->terminate = 1;            
+                metadata->pIndex++;
+                printf("\n\nFinalizer created a terminate message.\n\n");
+                sem_post(produceS);
+                sem_wait(metadataS);
+                metadata->queued++;
+                metadata->pIn--;
+                cCount = metadata->cCount;
+                sem_post(metadataS);
+                kill(-1, SIGCONT);
+            }
         }
         sem_close(metadataS);
         sem_close(produceS);

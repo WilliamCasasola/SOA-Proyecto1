@@ -155,13 +155,12 @@ void consume()
                 //Second Block
                 dif = 0;
                 time(&start);
-                sem_wait(consumeS);
                 sem_wait(metadataS);
                 time(&end);
                 dif = difftime(end, start);
                 cStats->timeBlocked += dif;
-
-                wait = metadata->queued;
+                wait = (metadata->cIn < metadata->queued);
+                metadata->cIn++;
                 sem_post(metadataS);
                 while (wait == 0)
                 {
@@ -186,6 +185,13 @@ void consume()
                     wait = metadata->queued;
                     sem_post(metadataS);
                 }
+                //Fourth Block
+                dif = 0;
+                time(&start);
+                sem_wait(consumeS);
+                time(&end);
+                dif = difftime(end, start);
+                cStats->timeBlocked += dif;
                 struct Message *message = (struct Message *)((buffer) + ((metadata->cIndex % metadata->bufferLength) * sizeof(struct Message)));
                 printf("\n\nConsumer with id %i consumed a message.\n\n", getpid());
                 if (message->terminate || message->key == (getpid() % 5))
@@ -200,7 +206,7 @@ void consume()
                 cStats->totalMessages++;
                 sem_post(consumeS);
 
-                //Fourth Block
+                //Fifth Block
                 dif = 0;
                 time(&start);
                 sem_wait(metadataS);
@@ -209,6 +215,7 @@ void consume()
                 cStats->timeBlocked += dif;
 
                 metadata->queued--;
+                metadata->cIn--;
                 sem_post(metadataS);
                 kill(-1, SIGCONT);
             }

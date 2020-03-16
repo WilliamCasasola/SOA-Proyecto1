@@ -158,17 +158,16 @@ void produce()
                 //Second Block
                 dif = 0;
                 time(&start);
-                sem_wait(produceS);
                 sem_wait(metadataS);
                 time(&end);
                 dif = difftime(end, start);
                 pStats->timeBlocked += dif;
 
-                wait = metadata->queued;
+                wait = (metadata->pIn > metadata->queued ) ? metadata->pIn : metadata->queued;
+                metadata->pIn++;
                 alive = !metadata->terminate;
                 sem_post(metadataS);
-
-                while (wait == metadata->bufferLength)
+                while (wait >= metadata->bufferLength)
                 {
                     printf("\nBuffer full.\n");
                     //Waits
@@ -199,6 +198,13 @@ void produce()
 
                 if (alive)
                 {
+                    //Fourth Block
+                    dif = 0;
+                    time(&start);
+                    sem_wait(produceS);
+                    dif = difftime(end, start);
+                    pStats->timeBlocked += dif;
+
                     struct Message *message = (struct Message *)((buffer) + ((metadata->pIndex % metadata->bufferLength) * sizeof(struct Message)));
                     message->pid = getpid();
                     message->datetime = time(NULL);
@@ -207,18 +213,20 @@ void produce()
                     metadata->pIndex++;
                     printf("\n\nProducer with id %i generated a message.\n\n", getpid());
                     pStats->totalMessages++;
-
-                    //Fourth Block
-                    dif = 0;
-                    time(&start);
-                    sem_wait(metadataS);
-                    dif = difftime(end, start);
-                    pStats->timeBlocked += dif;
-
-                    metadata->queued++;
-                    sem_post(metadataS);
+                    sem_post(produceS);
                 }
-                sem_post(produceS);
+                //Fifth Block
+                dif = 0;
+                time(&start);
+                sem_wait(metadataS);
+                dif = difftime(end, start);
+                pStats->timeBlocked += dif;
+
+                if (alive){
+                    metadata->queued++;
+                }
+                metadata->pIn--;
+                sem_post(metadataS);
                 kill(-1, SIGCONT);
             }
 

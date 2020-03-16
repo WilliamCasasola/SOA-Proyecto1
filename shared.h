@@ -16,6 +16,8 @@ struct Metadata {
 	int pIndex;
 	int queued;
 	int terminate;
+	int pIn;
+	int cIn;
 };
 
 struct Semaphores {
