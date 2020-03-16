@@ -29,6 +29,7 @@ struct producerConsumerStats
     int totalMessages;
     double timeBlocked;
     double timeWaiting;
+	double timeSleeping;
 };
 
 
