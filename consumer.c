@@ -18,7 +18,6 @@
 char* bufferName;
 int alive;
 int malicious;
-int consumed;
 int metadataSize;
 int semaphoresSize;
 int bufferSize;
@@ -27,13 +26,17 @@ char lConsume[10];
 char lProduce[10];
 char lMetadata[10];
 double mean;
+clock_t before;
+clock_t difference;
 
 struct stat smInfo;
+struct producerConsumerStats* cStats;
 
 void parseAndValidateParams();
 void consume();
 void finalize();
 double expDist(double lambda);
+void getStatistics();
 
 int main(int argc, char** argv) {    
     parseAndValidateParams(argc, argv);
@@ -47,9 +50,12 @@ int main(int argc, char** argv) {
 void parseAndValidateParams(int argc, char** argv){
     int withErrors = 0;
     mean = 0.25;
-    consumed = 0;
     alive = 1;
     malicious = 0;
+    cStats = malloc(sizeof(struct producerConsumerStats));
+    cStats->totalMessages = 0;
+    cStats->timeWaiting = 0;
+    cStats->timeBlocked = 0;
  
     if(argc >= 2){
         if(strcmp(argv[1], "-h") == 0){
@@ -96,7 +102,13 @@ void consume(){
         sem_t * consumeS = sem_open(lConsume, O_RDWR);
         
         int terminate = 0;
+
+        //First Block
+        before = clock();
         sem_wait(metadataS);
+        difference = clock() - before;
+        cStats->timeBlocked +=  ((double)difference)/CLOCKS_PER_SEC;
+
         terminate = metadata->terminate;
         if(!terminate){
             metadata->cCount++;
@@ -111,15 +123,32 @@ void consume(){
         }else{
             int wait = 0;
             while(alive){
+
+                //Wait
+                before = clock();
                 sleep(expDist(mean));
+                difference = clock() - before;
+                cStats->timeWaiting +=  ((double)difference)/CLOCKS_PER_SEC;
+
+                //Second Block
+                before = clock();
                 sem_wait(consumeS);
                 sem_wait(metadataS);
+                difference = clock() - before;
+                cStats->timeBlocked +=  ((double)difference)/CLOCKS_PER_SEC;
+
                 wait = metadata->queued;
                 sem_post(metadataS);
                 while(wait == 0){
                     printf("\nBuffer empty.\n");
                     raise(SIGSTOP);
+
+                    //Third Block
+                    before = clock();
                     sem_wait(metadataS);
+                    difference = clock() - before;
+                    cStats->timeBlocked +=  ((double)difference)/CLOCKS_PER_SEC;
+
                     wait = metadata->queued;
                     sem_post(metadataS);
                 }
@@ -132,14 +161,26 @@ void consume(){
                     }
                 }
                 metadata->cIndex++;
-                consumed++;
+                cStats->totalMessages++;
                 sem_post(consumeS);
+
+                //Fourth Block
+                before = clock();
                 sem_wait(metadataS);
+                difference = clock() - before;
+                cStats->timeBlocked +=  ((double)difference)/CLOCKS_PER_SEC;
+
                 metadata->queued--;
                 sem_post(metadataS);
                 kill(-1, SIGCONT);
             }
+
+            //Fifth Block
+            before = clock();
             sem_wait(metadataS);
+            difference = clock() - before;
+            cStats->timeBlocked +=  ((double)difference)/CLOCKS_PER_SEC;
+
             metadata->cCount--;
             sem_post(metadataS);
             kill(-1, SIGCONT);
@@ -157,10 +198,16 @@ void consume(){
 
 void finalize(){
     if(malicious){
-        printf("\n\nConsumer with process is %i has received a malicious message, it will finalize. \n\tConsumed Messages: %i\n\n", getpid(), consumed);    
+        printf("\n\nConsumer with process is %i has received a malicious message, it will finalize. \n\tConsumed Messages: %i\n\n", getpid(), cStats->totalMessages);
+        getStatistics();    
     }else{
-        printf("\n\nConsumer with process is %i has been ordered to finalize. \n\tConsumed Messages: %i\n\n", getpid(), consumed);    
+        
+        printf("\n\nConsumer with process is %i has been ordered to finalize. \n\tConsumed Messages: %i\n\n", getpid(), cStats->totalMessages);
+        getStatistics();    
     }   
 }
 
-
+void getStatistics(){
+    printf("\n Statistics from consumer with pid: %i\n Number of messages consumed: %i\n Total time blocked(ms): %lf\n Total time waiting(ms): %lf", 
+    getpid(), cStats->totalMessages, cStats->timeBlocked, cStats->timeWaiting);
+}

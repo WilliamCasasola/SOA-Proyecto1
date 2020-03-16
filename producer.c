@@ -12,13 +12,13 @@
 #include <sys/stat.h>
 #include <semaphore.h>
 #include <signal.h> 
+
+
 #include "shared.h"
 
 
 char* bufferName;
 int alive;
-int malicious;
-int produced;
 int metadataSize;
 int semaphoresSize;
 int bufferSize;
@@ -27,13 +27,17 @@ char lConsume[10];
 char lProduce[10];
 char lMetadata[10];
 double mean;
+clock_t before;
+clock_t difference;
 
 struct stat smInfo;
+struct producerConsumerStats* pStats;
 
 void parseAndValidateParams();
 void produce();
 void finalize();
 double expDist(double lambda);
+void getStatistics();
 
 int main(int argc, char** argv) {    
     parseAndValidateParams(argc, argv);
@@ -46,10 +50,12 @@ int main(int argc, char** argv) {
 
 void parseAndValidateParams(int argc, char** argv){
     int withErrors = 0;
-    mean = 0.25;
-    produced = 0;
-    alive = 1;
-    malicious = 0;
+    mean = 0.25;   
+    alive = 1;    
+    pStats = malloc(sizeof(struct producerConsumerStats));
+    pStats->totalMessages = 0;
+    pStats->timeWaiting = 0;
+    pStats->timeBlocked = 0;   
  
     if(argc >= 2){
         if(strcmp(argv[1], "-h") == 0){
@@ -98,12 +104,20 @@ void produce(){
             printf("test");
         }
         int terminate = 0;
+
+        //First Block
+        before = clock();
         sem_wait(metadataS);
+        difference = clock() - before;
+        pStats->timeBlocked +=  ((double)difference)/CLOCKS_PER_SEC;
+
         terminate = metadata->terminate;
         if(!terminate){
             metadata->pCount++;
         }
         sem_post(metadataS);
+
+
         if(terminate){
             printf("The Shared Memory has been marked to terminate, can't create new Consumer\n");
             sem_close(metadataS);
@@ -113,16 +127,33 @@ void produce(){
         }else{
             int wait = 0;
             while(alive){
+
+                //Wait 
+                before = clock();
                 sleep(expDist(mean));
+                difference = clock() - before;
+                pStats->timeWaiting +=  ((double)difference)/CLOCKS_PER_SEC;
+
+                //Second Block
+                before = clock();
                 sem_wait(produceS);
                 sem_wait(metadataS);
+                difference = clock() - before;
+                pStats->timeBlocked +=  ((double)difference)/CLOCKS_PER_SEC;
+
                 wait = metadata->queued;
                 alive = !metadata->terminate;
                 sem_post(metadataS);
                 while (wait == metadata->bufferLength){
                     printf("\nBuffer full.\n");
                     raise(SIGSTOP);
+
+                    //Third Block
+                    before = clock();
                     sem_wait(metadataS);
+                    difference = clock() - before;
+                    pStats->timeBlocked +=  ((double)difference)/CLOCKS_PER_SEC;
+
                     wait = metadata->queued;
                     alive = !metadata->terminate;
                     if(!alive){
@@ -138,15 +169,27 @@ void produce(){
                     message->terminate = 0;            
                     metadata->pIndex++;
                     printf("\n\nProducer with id %i generated a message.\n\n", getpid());
-                    produced++;
+                    pStats->totalMessages++;
+
+                    //Fourth Block
+                    before = clock();
                     sem_wait(metadataS);
+                    difference = clock() - before;
+                    pStats->timeBlocked +=  ((double)difference)/CLOCKS_PER_SEC;
+
                     metadata->queued++;
                     sem_post(metadataS);
                 }
                 sem_post(produceS);
                 kill(-1, SIGCONT);
             }
+
+            //Fifth Block
+            before = clock();
             sem_wait(metadataS);
+            difference = clock() - before;
+            pStats->timeBlocked +=  ((double)difference)/CLOCKS_PER_SEC;
+
             metadata->pCount--;
             sem_post(metadataS);
             finalize();
@@ -161,12 +204,13 @@ void produce(){
     }
 }
 
-void finalize(){
-    if(malicious){
-        printf("\n\nProducer with process id %i has received a malicious message, it will finalize. \n\tProduced Messages: %i\n\n", getpid(), produced);    
-    }else{
-        printf("\n\nProducer with process id %i has been ordered to finalize. \n\tProduced Messages: %i\n\n", getpid(), produced);    
-    }   
+void finalize(){    
+    printf("\n\nProducer with process id %i has been ordered to finalize. \n\tProduced Messages: %i\n\n", getpid(), pStats->totalMessages);
+    getStatistics();    
+      
 }
 
-
+void getStatistics(){
+    printf("\n Statistics from producer with pid: %i\n Number of messages produced: %i\n Total time blocked(ms): %lf\n Total time waiting(ms): %lf", 
+    getpid(), pStats->totalMessages, pStats->timeBlocked, pStats->timeWaiting);
+}

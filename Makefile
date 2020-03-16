@@ -1,10 +1,10 @@
 CC=gcc
 CFLAGS=-pthread -lm -g
 EXTRA_CFLAGS=-Wall -Wextra
-UNAME := $(shell uname)
+UNAME_S := $(shell uname -s)
 
-ifeq ($(UNAME), Linux)
-	CCFLAGS += -lrt
+ifeq ($(UNAME_S),Linux)
+	CFLAGS += -lrt
 endif
 
 all: creator finalizer consumer producer
