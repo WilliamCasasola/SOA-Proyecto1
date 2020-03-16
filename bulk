@@ -12,6 +12,6 @@ then
 	fi
 else
 	echo "Command not recognized, available commands are:"
-	echo "	./bulck consumer quantity bufferName mean"
-	echo "	./bulck producer quantity bufferName mean"
+	echo "	./bulk consumer quantity bufferName mean"
+	echo "	./bulk producer quantity bufferName mean"
 fi 
