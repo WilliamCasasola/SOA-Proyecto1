@@ -94,6 +94,9 @@ void produce(){
         void * buffer = ((void*) map) + metadataSize + semaphoresSize;
         sem_t * metadataS = sem_open(lMetadata, O_RDWR);
         sem_t * produceS = sem_open(lProduce, O_RDWR);
+        if(errno){
+            printf("test");
+        }
         int terminate = 0;
         sem_wait(metadataS);
         terminate = metadata->terminate;
@@ -111,11 +114,11 @@ void produce(){
             int wait = 0;
             while(alive){
                 sleep(expDist(mean));
+                sem_wait(produceS);
                 sem_wait(metadataS);
                 wait = metadata->queued;
                 alive = !metadata->terminate;
                 sem_post(metadataS);
-                sem_wait(produceS);
                 while (wait == metadata->bufferLength){
                     printf("\nBuffer full.\n");
                     raise(SIGSTOP);

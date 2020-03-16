@@ -112,10 +112,10 @@ void consume(){
             int wait = 0;
             while(alive){
                 sleep(expDist(mean));
+                sem_wait(consumeS);
                 sem_wait(metadataS);
                 wait = metadata->queued;
                 sem_post(metadataS);
-                sem_wait(consumeS);
                 while(wait == 0){
                     printf("\nBuffer empty.\n");
                     raise(SIGSTOP);
@@ -125,7 +125,7 @@ void consume(){
                 }
                 struct Message* message = (struct Message*) ((buffer) + ((metadata->cIndex % metadata->bufferLength) * sizeof(struct Message)));
                 printf("\n\nConsumer with id %i consumed a message.\n\n", getpid());
-                if(message->terminate || message->key == (getpid()%5)){
+                if(message->terminate){// || message->key == (getpid()%5)){
                     alive = 0;
                     if(message->key == (getpid()%5)){
                         malicious = 1;

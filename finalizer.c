@@ -80,7 +80,6 @@ void finalizePC(){
         sem_t * produceS = sem_open(lProduce, O_RDWR);
         sem_wait(metadataS);
         metadata->terminate = 1;
-        int cCount = metadata->cCount;
         int pCount = metadata->pCount;
         sem_post(metadataS);
         while(pCount > 0){
@@ -90,15 +89,23 @@ void finalizePC(){
             sem_post(metadataS);
         }
         int wait = 0;
+        sem_wait(metadataS);
+        int cCount = metadata->cCount;
+        sem_post(metadataS);
         while(cCount > 0){
+            sem_wait(produceS);
             sem_wait(metadataS);
             wait = metadata->queued;
             sem_post(metadataS);
-            sem_wait(produceS);
             while (wait == metadata->bufferLength){
-                raise(SIGSTOP);
                 sem_wait(metadataS);
                 wait = metadata->queued;
+                cCount = metadata->cCount;
+                if(cCount == 0){
+                    wait= -1;
+                }else{
+                    raise(SIGSTOP);
+                }
                 sem_post(metadataS);
             }
             struct Message* message = (struct Message*) ((buffer) + ((metadata->pIndex % metadata->bufferLength) * sizeof(struct Message)));
@@ -112,17 +119,7 @@ void finalizePC(){
             sem_wait(metadataS);
             metadata->queued++;
             sem_post(metadataS);
-            cCount--;
             kill(-1, SIGCONT);
-        }
-        sem_wait(metadataS);
-        cCount = metadata->cCount;
-        sem_post(metadataS);
-        while (cCount > 0){
-            raise(SIGSTOP);
-            sem_wait(metadataS);
-            cCount = metadata->cCount;
-            sem_post(metadataS);
         }
         sem_close(metadataS);
         sem_close(produceS);
