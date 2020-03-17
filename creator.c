@@ -96,7 +96,7 @@ void create(){
             metadata->pIndex = 0;
             metadata->queued = 0;
             metadata->terminate = 0;
-            struct Semaphores* semaphores = (struct Semaphores*) (map) + metadataSize;
+            struct Semaphores* semaphores = (struct Semaphores*) ((map) + metadataSize);
             randStr(semaphores->consume);
             randStr(semaphores->produce);
             randStr(semaphores->metadata);
