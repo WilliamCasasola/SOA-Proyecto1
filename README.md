@@ -30,9 +30,8 @@ Application receives up to two parameters, with the first being mandatory:
 
 | Argument                      | Description           | Type      | Defaul    | Optional  |
 | ------------------------------|-----------------------|-----------|:---------:|:---------:|
-| `<bufferName>`      | Name of the buffer  | char*    |           | No        |
-| `<bufferLength>`      | Buffer capacity  | int   |       10        | yes        |
-
+| `<bufferName>`                | Name of the buffer    | char*     |           | No        |
+| `<bufferLength>`              | Buffer capacity       | int       | 10        | yes       |
 
 
 ## 2.2 Producer
@@ -50,10 +49,10 @@ Application receives up to two parameters, with the first being mandatory:
 
 ### Arguments
 
-| Argument                      | Description           | Type      | Defaul    | Optional  |
-| ------------------------------|-----------------------|-----------|:---------:|:---------:|
-| `<bufferName>`      | Name of the buffer  | char*    |           | No        |
-| `<mean>`      | Mean for exponential time before produce to the buffer  |  double |       0.25        | yes        |
+| Argument             | Description                                             | Type      | Defaul    | Optional  |
+| ---------------------|---------------------------------------------------------|-----------|:---------:|:---------:|
+| `<bufferName>`       | Name of the buffer                                      | char*     |           | No        |
+| `<mean>`             | Mean for exponential time before produce to the buffer  | double    | 0.25      | yes       |
 
 
 ## 2.3 Consumer
@@ -71,10 +70,10 @@ Application receives up to two parameters, with the first being mandatory:
 
 ### Arguments
 
-| Argument                      | Description           | Type      | Defaul    | Optional  |
-| ------------------------------|-----------------------|-----------|:---------:|:---------:|
-| `<bufferName>`      | Name of the buffer  | char*    |           | No        |
-| `<mean>`      | Mean for exponential time before consume from the buffer  | double  |       0.25        | yes        |
+| Argument             | Description                                               | Type      | Defaul    | Optional  |
+| ---------------------|-----------------------------------------------------------|-----------|:---------:|:---------:|
+| `<bufferName>`       | Name of the buffer                                        | char*     |           | No        |
+| `<mean>`             | Mean for exponential time before consume from the buffer  | double    | 0.25      | yes       |
 
 
 ## 2.4 Finalizer
@@ -93,26 +92,28 @@ Application receives 1 parameter:
 
 | Argument                      | Description           | Type      | Defaul    | Optional  |
 | ------------------------------|-----------------------|-----------|:---------:|:---------:|
-| `<bufferName>`      | Name of the buffer  | char*    |           | No        |
+| `<bufferName>`                | Name of the buffer    | char*     |           | No        |
 
 
 ## 2.5 bulk
+
 This file allows you to create multiple consumers or producers in a single step:
 
-### Command
+**IMPORTANT:** `bulk` command must end with a `&` otherwise it could produce non desired effects and could break the execution of other commands. In such case please restart the process using a different buffer name.
+
+### Commands
 
 ```bash
-$ ./bulk producer <number> <bufferName> [<mean>]
+$ ./bulk producer <number> <bufferName> &
 ```
 
 ```bash
-$ ./bulk consumer <number> <bufferName> [<mean>]
+$ ./bulk consumer <number> <bufferName> &
 ```
 
 ### Arguments
 
-| Argument                      | Description           | Type      | Defaul    | Optional  |
-| ------------------------------|-----------------------|-----------|:---------:|:---------:|
-| `<number>`      | Number of producers or consumers to be created | integer    |           | No        |
-| `<bufferName>`      | Name of the buffer  | char*    |           | No        |
-| `<mean>`      | Mean for exponential time before consume from the buffer  | double  |       0.25        | yes        |
+| Argument            | Description                                    | Type      | Defaul    | Optional  |
+| --------------------|------------------------------------------------|-----------|:---------:|:---------:|
+| `<number>`          | Number of producers or consumers to be created | integer   |           | No        |
+| `<bufferName>`      | Name of the buffer                             | char*     |           | No        |
