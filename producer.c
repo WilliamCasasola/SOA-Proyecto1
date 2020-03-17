@@ -105,11 +105,11 @@ void produce()
         struct Metadata *metadata = ((struct Metadata *)map);
         bufferSize = metadata->bufferLength * sizeof(struct Message);
         totalSize = metadataSize + semaphoresSize + bufferSize;
-        struct Semaphores *semaphores = ((struct Semaphores *)map) + metadataSize;
+        struct Semaphores *semaphores = (struct Semaphores *) ((map) + metadataSize);
         strncpy(lConsume, semaphores->consume, 10);
         strncpy(lProduce, semaphores->produce, 10);
         strncpy(lMetadata, semaphores->metadata, 10);
-        void *buffer = ((void *)map) + metadataSize + semaphoresSize;
+        void *buffer = (void *) (map) + metadataSize + semaphoresSize;
         sem_t *metadataS = sem_open(lMetadata, O_RDWR);
         sem_t *produceS = sem_open(lProduce, O_RDWR);
         if (errno)

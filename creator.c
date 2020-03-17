@@ -88,7 +88,7 @@ void create(){
             exit(EXIT_FAILURE);
         }else{
             void* map = mmap(0, totalSize, PROT_READ | PROT_WRITE, MAP_SHARED, sm, 0);
-            struct Metadata* metadata = ((struct Metadata*) map);
+            struct Metadata* metadata = (struct Metadata*) (map);
             metadata->bufferLength = bufferLength;
             metadata->pCount = 0;
             metadata->cCount = 0;
@@ -96,7 +96,7 @@ void create(){
             metadata->pIndex = 0;
             metadata->queued = 0;
             metadata->terminate = 0;
-            struct Semaphores* semaphores = ((struct Semaphores*) map) + metadataSize;
+            struct Semaphores* semaphores = (struct Semaphores*) (map) + metadataSize;
             randStr(semaphores->consume);
             randStr(semaphores->produce);
             randStr(semaphores->metadata);
