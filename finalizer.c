@@ -68,14 +68,14 @@ void finalizePC(){
     if((sm = shm_open(bufferName, O_RDWR, 0)) != -1){
         fstat(sm, &smInfo);
         void* map = mmap(0, smInfo.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, sm, 0);
-        struct Metadata* metadata = ((struct Metadata*) map);
+        struct Metadata *metadata = (struct Metadata *) (map);
         bufferSize = metadata->bufferLength * sizeof(struct Message);
         totalSize = metadataSize + semaphoresSize + bufferSize;
-        void * buffer = ((void*) map) + metadataSize + semaphoresSize;
-        struct Semaphores* semaphores = ((struct Semaphores*) map) + metadataSize;        
+        struct Semaphores *semaphores = (struct Semaphores *) ((map) + metadataSize);
         strncpy(lConsume, semaphores->consume, 10);
         strncpy(lProduce, semaphores->produce, 10);
         strncpy(lMetadata, semaphores->metadata, 10);
+        void *buffer = (void *) ((map) + metadataSize + semaphoresSize);
         sem_t * metadataS = sem_open(lMetadata, O_RDWR);
         sem_t * produceS = sem_open(lProduce, O_RDWR);
         sem_wait(metadataS);
